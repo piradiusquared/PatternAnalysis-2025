@@ -50,3 +50,18 @@ tokenised_dataset = dataset.map(preprocess_function, batched=True, remove_column
 
 print("Dataset preprocessed successfully!")
 print(tokenised_dataset['train'][0].keys())
+
+# Directly from hugging face
+from transformers import AutoModelForSeq2SeqLM
+from peft import LoraModel, LoraConfig
+
+config = LoraConfig(
+    task_type="SEQ_2_SEQ_LM",
+    r=8,
+    lora_alpha=32,
+    target_modules=["q", "v"],
+    lora_dropout=0.01,
+)
+
+model = AutoModelForSeq2SeqLM.from_pretrained("t5-base")
+lora_model = LoraModel(model, config, "default")
