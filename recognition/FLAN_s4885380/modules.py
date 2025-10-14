@@ -29,3 +29,24 @@ def preprocess_function(batch):
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
 
+from datasets import Dataset, DatasetDict
+
+test_data = {
+    'train': Dataset.from_dict({
+        'radiology_report': ["The chest shows significant air trapping. Bilateral apical chronic changes are present. Dorsal kyphosis is noted. No evidence of pneumothorax."],
+        'layman_report': ["The chest shows a large amount of trapped air. There are long-term changes at the top of both lungs. The upper back is curved outward. There is no sign of air in the space around the lungs."]
+    }),
+    'validation': Dataset.from_dict({
+        'radiology_report': ["Central venous catheter traversing the left jugular vein with its tip in the superior vena cava. The remainder is unchanged."],
+        'layman_report': ["A central venous catheter is going through the left jugular vein and its tip is in the superior vena cava. Everything else is the same as before."]
+    }),
+    'test': Dataset.from_dict({
+        'radiology_report': ["Chronic pulmonary changes"],
+        'layman_report': ["Long-term changes in the lungs are seen."]
+    })
+}
+dataset_test = DatasetDict(test_data)
+tokenised_dataset = dataset.map(preprocess_function, batched=True, remove_columns=['radiology_report', 'layman_report'])
+
+print("Dataset preprocessed successfully!")
+print(tokenised_dataset['train'][0].keys())
