@@ -1,9 +1,6 @@
 import torch
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print("Device:", device)
-
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
+from peft import LoraModel, LoraConfig
 from transformers import (
     AutoTokenizer,
     AutoModelForSeq2SeqLM,
@@ -12,11 +9,17 @@ from transformers import (
     DataCollatorForSeq2Seq
 )
 
-dataset = load_dataset("BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track")
-tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-base")
+# Constant values
+FLAN_MODEL = "google/flan-t5-base"
+DATASET_URL = "BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track"
 
+MAX_INPUT = 1024 # Sufficient length
+MAX_LABEL = 256
 
-print(dataset["train"].column_names)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("Device:", device)
+
+tokenizer = AutoTokenizer.from_pretrained(FLAN_MODEL)
 
 def preprocess_function(batch):
     prefix = "translate this radiology report into a summary for a layperson: "
@@ -28,8 +31,6 @@ def preprocess_function(batch):
         labels = tokenizer(targets, max_length=256, truncation=True)
     model_inputs["labels"] = labels["input_ids"]
     return model_inputs
-
-from datasets import Dataset, DatasetDict
 
 test_data = {
     'train': Dataset.from_dict({
@@ -45,15 +46,12 @@ test_data = {
         'layman_report': ["Long-term changes in the lungs are seen."]
     })
 }
-dataset_test = DatasetDict(test_data)
-tokenised_dataset = dataset.map(preprocess_function, batched=True, remove_columns=['radiology_report', 'layman_report'])
+biolay_dataset = load_dataset(DATASET_URL)
+original_columns = biolay_dataset["train"].column_names
+tokenised_dataset = biolay_dataset.map(preprocess_function, batched=True, remove_columns=original_columns)
 
 print("Dataset preprocessed successfully!")
-print(tokenised_dataset['train'][0].keys())
-
-# Directly from hugging face
-from transformers import AutoModelForSeq2SeqLM
-from peft import LoraModel, LoraConfig
+print(tokenised_dataset["train"][0].keys())
 
 config = LoraConfig(
     task_type="SEQ_2_SEQ_LM",
@@ -63,5 +61,5 @@ config = LoraConfig(
     lora_dropout=0.01,
 )
 
-model = AutoModelForSeq2SeqLM.from_pretrained("t5-base")
+model = AutoModelForSeq2SeqLM.from_pretrained(FLAN_MODEL)
 lora_model = LoraModel(model, config, "default")
