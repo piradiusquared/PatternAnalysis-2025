@@ -1,18 +1,18 @@
-import torch
 import pandas as pd
 
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 from constants import *
 
 
 class FlanDataset(Dataset):
-    def __init__(self, file_path: str, tokenizer, config):
+    def __init__(self, file_path: str, tokenizer):
         self.tokenizer = tokenizer
-        self.config = config
         self.prefix = "translate this radiology report into a summary for a layperson: "
     
         # Biolaysumm dataset is of .parquet file type
+        # Future addition: add support for basic files 
         self.dataframe = pd.read_parquet(file_path)
+        self.dataframe = self.dataframe[0:50] # Slice data for subset
     
     def __len__(self):
         return len(self.dataframe)
@@ -34,5 +34,5 @@ class FlanDataset(Dataset):
                 max_length=MAX_TARGET_LENGTH,
                 truncation=True
             )
-
+        model_inputs["labels"] = labels["input_ids"]
         return model_inputs
