@@ -36,6 +36,7 @@ class FlanTrainer:
     def train(self):
         for epoch in range(EPOCHS):
             self.train_epoch(epoch=epoch)
+            self.evaluate_epoch(epoch=epoch)
 
     """
     References: https://docs.pytorch.org/tutorials/beginner/introyt/trainingyt.html
@@ -64,7 +65,36 @@ class FlanTrainer:
 
 
     def evaluate_epoch(self, epoch):
-        pass
+        self.model.eval()
+
+        all_preds = []
+        all_labels = []
+
+        eval_progress = tqdm(self.eval_dataloader, desc="Evaluating")
+        for batch in eval_progress:
+            batch = {k: v.to(self.device) for k, v in batch.items()}
+            with torch.no_grad():
+                generated_tokens = self.model.generate(
+                    input_ids=batch["input_ids"],
+                    attention_mask=batch["attention_mask"],
+                    max_new_tokens=MAX_TARGET_LENGTH,
+                )
+            
+            decoded_preds = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+            labels = np.where(batch["labels"].cpu() != -100, batch["labels"].cpu(), self.tokenizer.pad_token_id)
+            decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
+
+            all_preds.extend(decoded_preds)
+            all_labels.extend(decoded_labels)
+        
+        result = self.metric.compute(predictions=all_preds, references=all_labels, use_stemmer=True)
+        result = {k: v * 100 for k, v in result.items()}
+        print(f"Rouge score: {result}")
+        
+        # Save per epoch in case something goes wrong
+        epoch_output_dir = f"{OUTPUT_DIR}/epoch_{epoch+1}"
+        self.model.save_pretrained(epoch_output_dir)
+        self.tokenizer.save_pretrained(epoch_output_dir)
     
     def get_train_loss(self) -> list:
         return self._train_loss
