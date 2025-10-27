@@ -28,14 +28,43 @@ class FlanTrainer:
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.device = device
+        self.scaler = GradScaler() # New version doesn't work on rangpur
+        self.metric = evaluate.load("rouge")
 
-
+        self._train_loss = [] # Loss list for plotting
+        
     def train(self):
-        pass
+        for epoch in range(EPOCHS):
+            self.train_epoch(epoch=epoch)
 
+    """
+    References: https://docs.pytorch.org/tutorials/beginner/introyt/trainingyt.html
+    https://huggingface.co/learn/llm-course/en/chapter3/4#next-steps-and-best-practices
+    """
     def train_epoch(self, epoch: int) -> None:
-        pass
+        self.model.train()
+        train_progress = tqdm(self.train_dataloader, desc=f"Epoch {epoch + 1} Training")
+
+        for batch in train_progress:
+            batch = {k: v.to(self.device) for k, v in batch.items()}
+            with torch.no_grad():
+                outputs = self.model(**batch)
+                loss = outputs.loss
+
+            self.scaler.scale(loss).backward() # Step optimiser and scalers
+            self.scaler.step(optimizer=self.optimizer)
+            self.scaler.update()
+            self.lr_scheduler.step()
+            self.optimizer.zero_grad()
+            
+            self._train_loss.append(loss.item()) # Add loss per batch to list
+
+            train_progress.set_postfix(loss=loss.item())
+            train_progress.update(1)
 
 
     def evaluate_epoch(self, epoch):
         pass
+    
+    def get_train_loss(self) -> list:
+        return self._train_loss
