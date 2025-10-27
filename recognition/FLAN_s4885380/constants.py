@@ -1,5 +1,5 @@
 
-MODEL_NAME = "google/flan-t5-base"
+MODEL_NAME = "google/flan-t5-small"
 
 TRAIN_FILE = "hf://datasets/BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track/data/train-00000-of-00001.parquet"
 VALIDATION_FILE = "hf://datasets/BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track/data/validation-00000-of-00001.parquet"
@@ -7,6 +7,9 @@ TEST_FILE = "hf://datasets/BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track/
 
 INPUT_COLUMN = "radiology_report"
 TARGET_COLUMN = "layman_report"
+
+TRAIN_SPLIT = 0.7
+VALIDATION_SPLIT = 0.3
 
 EPOCHS = 3
 LEARNING_RATE = 1e-4
