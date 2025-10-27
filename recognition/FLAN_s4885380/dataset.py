@@ -1,3 +1,4 @@
+from typing import Any
 import pandas as pd
 import numpy as np
 
@@ -5,9 +6,12 @@ from torch.utils.data import Dataset
 from constants import *
 
 class SplitData:
-    def __init__(self, file_path: str) -> None:
+    def __init__(self, file_path: str, sample_size: int | None = None) -> None:
         self.dataframe = pd.read_parquet(file_path)
-        self.dataframe = self.dataframe[0:200] # Remove when actually training
+        if sample_size != None:
+            self.dataframe = self.dataframe[0:sample_size] # Remove when actually training
+        else:
+            self.dataframe = self.dataframe[100:300]
 
     def get_splits(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         split_index = np.random.random(len(self.dataframe)) < 0.7
