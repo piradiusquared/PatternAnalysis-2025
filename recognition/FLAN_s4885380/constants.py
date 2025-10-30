@@ -1,5 +1,5 @@
 
-MODEL_NAME = "google/flan-t5-small"
+MODEL_NAME = "google/flan-t5-base"
 
 TRAIN_FILE = "hf://datasets/BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track/data/train-00000-of-00001.parquet"
 VALIDATION_FILE = "hf://datasets/BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track/data/validation-00000-of-00001.parquet"
