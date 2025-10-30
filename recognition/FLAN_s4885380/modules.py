@@ -1,11 +1,5 @@
 from typing import Tuple
-import torch
-import pandas as pd
-import numpy as np
-import evaluate
-from tqdm.auto import tqdm
 
-from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
 from transformers import (
     AutoTokenizer,
@@ -39,13 +33,15 @@ class FlanModel:
         model = get_peft_model(model, lora_config)
         model.print_trainable_parameters()
         return model, tokenizer
-        # model.to(device)
 
     def setup_optimiser(self, model, train_dataloader) -> Tuple[AdamW, get_scheduler]:
         optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
         num_training_steps = EPOCHS * len(train_dataloader)
         lr_scheduler = get_scheduler(
-            "linear", optimizer=optimizer, num_warmup_steps=0, num_training_steps=num_training_steps
+            "linear",
+            optimizer=optimizer,
+            num_warmup_steps=0,
+            num_training_steps=num_training_steps
         )
 
         return optimizer, lr_scheduler
