@@ -53,6 +53,7 @@ As for prediction and model benchmarking, a random sample of 5 unseen rows will 
 This project aims to fine-tune a pre-trained Flan-T5 model to accurately summarise technical radiology reports in the BioLaySumm dataset. After training, this model will be able to translate complex medical terms into simpler summaries. The accuracy of these summaries will be evaluated using the `Rouge` and `Perplexity` metrics. 
 
 ## File Structure
+- `runners/` - Directory containing files to help run training and benchmarking code on `rangpur`. Contains `trainer` and `benchmark`.
 - `constants.py` - File containing training and LoRA parameters, dataset links and other model specific settings. 
 - `dataset.py` - Contains the class used to load and preprocess the data.
 - `modules.py` - This file builds and creates the model and optimisers
@@ -310,7 +311,8 @@ Given a very simple radiology report, the model is able to accurately summarise 
 | `rougeL` | 66.1654 |
 | `rougeLsum` | 66.1654 |  
 
-This example contained more colloquial phrases compared to other radiology reports. 
+This example contained more colloquial phrases compared to other radiology reports. By manual inspection, some phrases were not accurately summarised. For example, the model failed on the term "osteopenia". Instead of describing it as "reduced bone density", it paraphrased "diffused osteopenia" into "widespread osteopenia".
+This suggests that the model has difficulty choosing the more important term to simplify. In this scenario, the word "osteopenia" may be less common in the training data, leading to this error. 
 
 | `Perplexity` | Score |
 | ------- | ----- |
@@ -409,7 +411,6 @@ However, in [Example 4](#example-4), the gap between `perplexity` scores is extr
 ~$ git clone https://github.com/piradiusquared/PatternAnalysis-2025.git ./flan_setup && cd ./flan_setup
 flan_setup$ git checkout 'topic-recognition'
 flan_setup$ cd recognition/FLAN_s4885380
-
 ```
 
 **Rangpur Steps**
@@ -421,11 +422,29 @@ flan_setup$ cd recognition/FLAN_s4885380
 ```
 
 **Running Training**
-
+> :memo: **Note:** These steps assume you have activated your environment, and the default directory is ~/flan_setup/recognition/FLAN_s4885380.
+```
+FLAN_s4885380$ cd runners
+FLAN_s4885380$ sbatch trainer
+```
 
 **Running Benchmarking**
+> :memo: **Note:** Benchmarking 1 sample is very fast, so the a100-test partition can handle it perfectly fine. If benchmarking more, then please use the benchmark file
+```
+FLAN_s4885380$ srun -p a100-test --gres=shard:1 python train.py
+--- OR ---
+FLAN_s4885380$ cd runners
+FLAN_s4885380$ sbatch benchmark
+```
+
+**Running Locally**
+```
+FLAN_s4885380$ python [train/predict].py
+```
 
 ### Dependencies
+> :warning: **Warning:** CUDA version for this project is **11.8**
+
 The following libraries are required to reproduce the fine-tuning process (as of `31/10/2025`):
 ``` Bash
 # Core Fine Tuning and NLP packages
@@ -451,6 +470,8 @@ Or, you may install through the provided ```requirements.txt``` file by running:
 ``` Bash
 pip install -r requirements.txt
 ```
+
+*Latest Python version was used
 
 ## Future Improvements
 - Continue testing with the parameters to find ideal settings
