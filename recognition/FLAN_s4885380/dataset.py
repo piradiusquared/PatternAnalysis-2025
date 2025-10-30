@@ -1,4 +1,4 @@
-from typing import Any
+import random
 import pandas as pd
 import numpy as np
 
@@ -9,9 +9,9 @@ class SplitData:
     def __init__(self, file_path: str, sample_size: int | None = None) -> None:
         self.dataframe = pd.read_parquet(file_path)
         if sample_size != None:
-            self.dataframe = self.dataframe[0:sample_size] # Remove when actually training
-        else:
-            self.dataframe = self.dataframe[100:300]
+            self.dataframe = self.dataframe[0:sample_size]
+        # else:
+        #     self.dataframe = self.dataframe[100:300] # Testing split
 
     def get_splits(self) -> tuple[pd.DataFrame, pd.DataFrame]:
         split_index = np.random.random(len(self.dataframe)) < 0.7
@@ -24,7 +24,13 @@ class SplitData:
 class FlanDataset(Dataset):
     def __init__(self, dataframe: pd.DataFrame, tokenizer) -> None:
         self.tokenizer = tokenizer
-        self.prefix = "translate this radiology report into a summary for a layperson: "
+        # self.prefix = MODEL_PROMPT
+        self._prompts = [
+            "Translate this radiology report into a summary for a layperson: ",
+            "Summarise the following medical report in simple, easy-to-understand terms: ",
+            "Explain this radiology report to a patient with no medical background: ",
+            "Provide a layperson's summary for this report: "
+        ]
 
         self.dataframe = dataframe
 
@@ -38,7 +44,9 @@ class FlanDataset(Dataset):
     
     def __getitem__(self, index: int) -> list:
         row = self.dataframe.iloc[index]
-        report = self.prefix + str(row[INPUT_COLUMN])
+
+        rand_prefix = random.choice(self._prompts)
+        report = rand_prefix + str(row[INPUT_COLUMN])
         summary = str(row[TARGET_COLUMN])
 
         model_inputs = self.tokenizer(
@@ -55,10 +63,3 @@ class FlanDataset(Dataset):
             )
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-
-
-# dataframe = SplitData(file_path=TRAIN_FILE)
-# train, validation = dataframe.get_splits()
-
-# print(len(train))
-# print(len(validation))
