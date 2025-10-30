@@ -38,6 +38,7 @@ class FlanTrainer:
         for epoch in range(EPOCHS):
             epoch_start = time.time()
 
+            # Train and eval per epoch
             self.train_epoch(epoch)
             self.evaluate_epoch(epoch)
 
@@ -61,12 +62,14 @@ class FlanTrainer:
                 outputs = self.model(**batch)
                 loss = outputs.loss
 
+            # Scale and optimise
             self.scaler.scale(loss).backward()
             self.scaler.step(optimizer=self.optimizer)
             self.scaler.update()
             self.lr_scheduler.step()
             self.optimizer.zero_grad()
             
+            # Add loss for plotting
             self._train_loss.append(loss.item())
 
             train_progress.set_postfix(loss=loss.item())
@@ -92,12 +95,15 @@ class FlanTrainer:
                 )
             
             decoded_preds = self.tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
+            # -100 for padding reasons
             labels = np.where(batch["labels"].cpu() != -100, batch["labels"].cpu(), self.tokenizer.pad_token_id)
             decoded_labels = self.tokenizer.batch_decode(labels, skip_special_tokens=True)
 
+            # Add in decoded
             all_preds.extend(decoded_preds)
             all_labels.extend(decoded_labels)
         
+        # Compute rouge scores
         result = self.metric.compute(predictions=all_preds, references=all_labels, use_stemmer=True)
         result = {k: v * 100 for k, v in result.items()}
         print(f"Evaluation ROUGE scores for Epoch {epoch+1}:")
@@ -125,7 +131,7 @@ model.to(device)
 
 # Preprocess data into splits:
 
-dataframe = SplitData(file_path=TRAIN_FILE, sample_size=1000)
+dataframe = SplitData(file_path=TRAIN_FILE)
 train_split, validation_split = dataframe.get_splits()
 
 # Create Datasets and DataLoaders
@@ -134,6 +140,7 @@ validation_dataset = FlanDataset(dataframe=validation_split, tokenizer=tokenizer
 
 data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
 
+# Load in from Pandas
 train_dataloader = DataLoader(
     train_dataset, shuffle=True, collate_fn=data_collator, batch_size=TRAIN_BATCH_SIZE
 )
@@ -158,4 +165,4 @@ plt.plot(trainer.get_train_loss(), label="Train loss")
 plt.xlabel("batch")
 plt.ylabel("loss")
 plt.legend()
-plt.show()
+plt.savefig(LOSS_OUT) # Save plot
