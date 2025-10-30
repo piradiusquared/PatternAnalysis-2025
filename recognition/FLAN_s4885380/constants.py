@@ -26,3 +26,4 @@ LORA_DROPOUT = 0.05
 LORA_TARGET_MODULES = ["q", "v"]
 
 OUTPUT_DIR = "t5-base-lora-tuned"
+LOSS_OUT = "loss.png"
