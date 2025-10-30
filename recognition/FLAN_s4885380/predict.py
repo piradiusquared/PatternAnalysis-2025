@@ -7,11 +7,32 @@ from datasets import load_dataset
 BASE_MODEL = "google/flan-t5-base"
 FINETUNED_MODEL = "t5-base-lora-tuned/epoch_3" # Take last epoch
 
-base_model = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL, torch_dtype=torch.bfloat16, device_map="auto")
+def perplexity_score(model: AutoModelForSeq2SeqLM,
+                     tokenizer: AutoTokenizer,
+                     prompt: str,
+                     target_text: str,
+                     device="cuda") -> dict:
+    inputs = tokenizer(prompt, return_tensors="pt").to(device)
+    labels = tokenizer(target_text, return_tensors="pt").input_ids.to(device)
 
-model = PeftModel.from_pretrained(base_model, FINETUNED_MODEL)
+    with torch.no_grad():
+        outputs = model(**inputs, labels=labels)
+        loss = outputs.loss
+
+    perplexity = torch.exp(loss)
+    return perplexity.item()
+
+# Get new base flan-t5 model, and load in saved trained model
+base_model = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL, torch_dtype=torch.bfloat16, device_map="auto")
+base_model.eval()
+
+new_t5 = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL, torch_dtype=torch.bfloat16, device_map="auto")
+fine_tuned_model = PeftModel.from_pretrained(new_t5, FINETUNED_MODEL)
+fine_tuned_model.eval()
+
 tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
 
+# Use API for loading in dataset
 predict_dataset = load_dataset("BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track")
 predict_dataset = predict_dataset.shuffle(seed=889)
 random_predict = predict_dataset["validation"]
@@ -19,22 +40,28 @@ random_predict = predict_dataset["validation"]
 predictions = []
 references = []
 
-for i in range(5): # Number of comparisons
+for i in range(5): # Number of evaluations
     radiology_report = random_predict[i]['radiology_report']
     layman_report = random_predict[i]['layman_report']
 
     prompt = f"translate this radiology report into a summary for a layperson: {radiology_report}"
     inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
 
-    # Get fine tuned model to generate 
+    # Get fine tuned model to generate a summary
     with torch.no_grad():
-        outputs = model.generate(**inputs, max_new_tokens=256) # constant for 256
+        outputs = fine_tuned_model.generate(**inputs, max_new_tokens=256) # constant for 256
     
     prediction = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    fine_tune_perplexity = perplexity_score(fine_tuned_model, tokenizer, prompt, layman_report)
+    base_model_perplexity = perplexity_score(base_model, tokenizer, prompt, layman_report)
 
     print(f"\nExample {i + 1}")
     print(f"Official Layman Report: {layman_report}")
     print(f"Fine tuned Model's Layman Report: {prediction}")
+
+    print(f"\nFine Tuned Model Perplexity on Official Report: {fine_tune_perplexity:.4f}")
+    print(f"\nBase Model Perplexity on Official Report: {base_model_perplexity:.4f}")
 
     predictions.append(prediction)
     references.append(layman_report) # Official report from dataset
