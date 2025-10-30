@@ -1,0 +1,11 @@
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --cpus-per-task=4
+#SBATCH --gres=gpu:1
+#SBATCH --partition=a100
+#SBATCH --time=5:00:00
+#SBATCH --job-name=flant5finetune
+#SBATCH -o flantune.out
+
+conda activate flan
+python train.py
