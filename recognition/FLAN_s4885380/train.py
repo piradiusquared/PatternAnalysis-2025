@@ -28,43 +28,54 @@ class FlanTrainer:
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
         self.device = device
-        self.scaler = GradScaler() # New version doesn't work on rangpur
+        self.scaler = GradScaler()
         self.metric = evaluate.load("rouge")
 
-        self._train_loss = [] # Loss list for plotting
+        self._train_loss = []
         
     def train(self):
+        start_time = time.time()
         for epoch in range(EPOCHS):
-            self.train_epoch(epoch=epoch)
-            self.evaluate_epoch(epoch=epoch)
+            epoch_start = time.time()
 
-    """
-    References: https://docs.pytorch.org/tutorials/beginner/introyt/trainingyt.html
-    https://huggingface.co/learn/llm-course/en/chapter3/4#next-steps-and-best-practices
-    """
+            self.train_epoch(epoch)
+            self.evaluate_epoch(epoch)
+
+            epoch_time = time.time() - epoch_start
+            print(f"Epoch {epoch + 1} took {epoch_time/60 : .2f} minutes")
+
+        total_time = time.time() - start_time
+        hours, rem = divmod(total_time, 3600)
+        minutes, seconds = divmod(rem, 60)
+        print(f"\nTotal training time: {int(hours)}h {int(minutes)}m {seconds:.2f}s")
+
     def train_epoch(self, epoch: int) -> None:
+        print(f"\nStarting Epoch {epoch+1}/{EPOCHS}")
         self.model.train()
         train_progress = tqdm(self.train_dataloader, desc=f"Epoch {epoch + 1} Training")
 
+        batch_num = 0
         for batch in train_progress:
             batch = {k: v.to(self.device) for k, v in batch.items()}
-            with torch.no_grad():
+            with autocast(dtype=torch.bfloat16):
                 outputs = self.model(**batch)
                 loss = outputs.loss
 
-            self.scaler.scale(loss).backward() # Step optimiser and scalers
+            self.scaler.scale(loss).backward()
             self.scaler.step(optimizer=self.optimizer)
             self.scaler.update()
             self.lr_scheduler.step()
             self.optimizer.zero_grad()
             
-            self._train_loss.append(loss.item()) # Add loss per batch to list
+            self._train_loss.append(loss.item())
 
             train_progress.set_postfix(loss=loss.item())
-            train_progress.update(1)
+            tqdm.write(f"Batch: {batch_num} Loss: {loss.item(): .4f}")
+            batch_num += 1
 
 
     def evaluate_epoch(self, epoch):
+        print(f"Evaluation for Epoch {epoch + 1}")
         self.model.eval()
 
         all_preds = []
@@ -89,12 +100,62 @@ class FlanTrainer:
         
         result = self.metric.compute(predictions=all_preds, references=all_labels, use_stemmer=True)
         result = {k: v * 100 for k, v in result.items()}
-        print(f"Rouge score: {result}")
+        print(f"Evaluation ROUGE scores for Epoch {epoch+1}:")
+        print(f"rouge1: {result['rouge1']:.4f}, rouge2: {result['rouge2']:.4f}, rougeL: {result['rougeL']:.4f}, rougeLsum: {result['rougeLsum']:.4f}")
         
-        # Save per epoch in case something goes wrong
-        epoch_output_dir = f"{OUTPUT_DIR}/epoch_{epoch+1}"
+        epoch_output_dir = f"{OUTPUT_DIR}/epoch_{epoch + 1}"
         self.model.save_pretrained(epoch_output_dir)
         self.tokenizer.save_pretrained(epoch_output_dir)
+        print(f"Epoch {epoch + 1} Model is saved to: {OUTPUT_DIR}/epoch_{epoch + 1}")
     
     def get_train_loss(self) -> list:
         return self._train_loss
+
+
+"""
+Actual training script
+"""
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}\n")
+
+builder = FlanModel()
+
+model, tokenizer = builder.build()
+model.to(device)
+
+# Preprocess data into splits:
+
+dataframe = SplitData(file_path=TRAIN_FILE, sample_size=1000)
+train_split, validation_split = dataframe.get_splits()
+
+# Create Datasets and DataLoaders
+train_dataset = FlanDataset(dataframe=train_split, tokenizer=tokenizer)
+validation_dataset = FlanDataset(dataframe=validation_split, tokenizer=tokenizer)
+
+data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
+
+train_dataloader = DataLoader(
+    train_dataset, shuffle=True, collate_fn=data_collator, batch_size=TRAIN_BATCH_SIZE
+)
+
+eval_dataloader = DataLoader(
+    validation_dataset, shuffle=True, collate_fn=data_collator, batch_size=VALID_BATCH_SIZE
+)
+
+optimizer, scheduler = builder.setup_optimiser(model=model, train_dataloader=train_dataloader)
+trainer = FlanTrainer(model=model,
+                        tokenizer=tokenizer,
+                        train_dataloader=train_dataloader,
+                        eval_dataloader=eval_dataloader,
+                        optimizer=optimizer,
+                        lr_scheduler=scheduler,
+                        device=device)
+
+trainer.train()
+
+import matplotlib.pyplot as plt
+plt.plot(trainer.get_train_loss(), label="Train loss")
+plt.xlabel("batch")
+plt.ylabel("loss")
+plt.legend()
+plt.show()
