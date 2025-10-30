@@ -4,8 +4,9 @@ from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 from peft import PeftModel
 from datasets import load_dataset
 
-BASE_MODEL = "google/flan-t5-base"
-FINETUNED_MODEL = "t5-base-lora-tuned/epoch_3" # Take last epoch
+from constants import *
+
+FINETUNED_MODEL = "t5-base-lora-tuned/epoch_3" # Take last epoch for best performance
 
 def perplexity_score(model: AutoModelForSeq2SeqLM,
                      tokenizer: AutoTokenizer,
@@ -23,18 +24,18 @@ def perplexity_score(model: AutoModelForSeq2SeqLM,
     return perplexity.item()
 
 # Get new base flan-t5 model, and load in saved trained model
-base_model = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL, torch_dtype=torch.bfloat16, device_map="auto")
+base_model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
 base_model.eval()
 
-new_t5 = AutoModelForSeq2SeqLM.from_pretrained(BASE_MODEL, torch_dtype=torch.bfloat16, device_map="auto")
+new_t5 = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16, device_map="auto")
 fine_tuned_model = PeftModel.from_pretrained(new_t5, FINETUNED_MODEL)
 fine_tuned_model.eval()
 
-tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
 # Use API for loading in dataset
 predict_dataset = load_dataset("BioLaySumm/BioLaySumm2025-LaymanRRG-opensource-track")
-predict_dataset = predict_dataset.shuffle(seed=889)
+predict_dataset = predict_dataset.shuffle(seed=3710)
 random_predict = predict_dataset["validation"]
 
 predictions = []
@@ -49,10 +50,11 @@ for i in range(5): # Number of evaluations
 
     # Get fine tuned model to generate a summary
     with torch.no_grad():
-        outputs = fine_tuned_model.generate(**inputs, max_new_tokens=256) # constant for 256
+        outputs = fine_tuned_model.generate(**inputs, max_new_tokens=MAX_INPUT_LENGTH)
     
     prediction = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
+    # Compare perplexity
     fine_tune_perplexity = perplexity_score(fine_tuned_model, tokenizer, prompt, layman_report)
     base_model_perplexity = perplexity_score(base_model, tokenizer, prompt, layman_report)
 
