@@ -117,9 +117,9 @@ Flan (Fine-tuned LAnguage Net) -T5 is an *instruction-tuned* version of the T5 m
 
 The process involved taking a pre-trained T5 model, which is fine-tuned on a massive set of various Natural Language Processing Tasks, such as "Translate this sentence to German", or "Classify this movie review as positive or negative". The goal of this tuning method is to teach the model how to generalise seen and *unseen* tasks. The model not only becomes proficient in solving the given NLP tasks, but also becomes good at "following instructions" in general. 
 
-Instruction tuning significantly improves Flan-T5's usability and ability to perform zero-shot reasoning. On the other hand, the T5 model would require multiple task-specific fine-tuning operations to achieve the same result. 
+Instruction tuning significantly improves Flan-T5's usability and ability to perform zero-shot reasoning. As for the T5 model, it would require multiple task-specific fine-tuning operations to achieve the same result. 
 
-Overall, the Flan-T5 model enhances T5's existing text-to-text architecture by layering a broad understanding of following human instructions, making it more versatile and capable without additional tuning.
+Overall, the Flan-T5 model enhances T5's existing text-to-text architecture and performance by layering a broad understanding of following human instructions, making it more versatile and capable without additional tuning.
 
 ## Data Augmentation
 When fine tuning in the training loop, rather than only having 1 prompt (prefix), a random prefix is chosen from a list of 4 similar prompts. This gives the model a broader understanding of different zero-shot prompts, increasing its flexibility in a real-world scenario. 
@@ -224,7 +224,7 @@ rougeLsum: 59.1569
 Increasing the batch size successfully stabilised the loss during training. However, the learning rate decrease was unnecessary, as the model adjusted parameters too cautiously. As a result, the model could not effectively traverse the loss function, which inhibited convergence. Although the `LoRA` rank was doubled to 16, the combination of the previous parameters rendered this change uneffective.
 
 ## Results
-From [Test Run 2](#test-run-2), the key insight was to increase the learning rate. The batch size was kept the same as the loss was much more stable, and the `LoRA` rank was upscaled to `32`, allowing the model to capitalise on the learning rate (as well as to make the most of the `a100` hardware).  
+From [Test Run 2](#test-run-2), the key insight was to increase the learning rate. The batch size was kept the same as the loss was much more stable, and the `LoRA` rank was upscaled to `64`, allowing the model to capitalise on the learning rate (as well as to make the most of the `a100` hardware).  
 After tuning the training parameters, the final `Rouge` output of the model is as follows:  
 | Rouge`x` | Value |
 | -------- | ----- |
@@ -401,7 +401,7 @@ For a medium length and complexity
 Overall, the `rouge` scores provide strong quantitative evidence of the model's ability to summarise expert radiology reports into layperson terms. The high `rouge1` scores indicate excellent recall of key content and medical terms. Moreover, an average `rouge2` of above 50 suggests the model can summarise and arrange words into fluent and grammatically correct phrases. This is critical as to allow a wide range of audiences to read and comprehend the summary. The primary metric `rougeL` often scores above 70 for the average length report, confirming the model's ability to replicate sentence-level structure.  
 When testing on individual samples, drops in `rouge` scores provided a clear signal for truncated or incorrect outputs. These samples are key for future improvement identification. 
 
-Throughout all examples, the `perplexity` score is consistently between 2 - 4 times lower for the fine-tuned model. This strongly indicates the model is no longer suprised to see medical terminology, and is confident in knowing how to summarise radiology jargon. Additionally, it has adapted to the style of the `BioLaySumm` dataset.  
+Throughout all examples, the `perplexity` score is consistently between 2 - 4 times lower for the fine-tuned model. This strongly indicates the model is no longer suprised to see medical terminology, and is confident in its predictions to summarise radiology jargon. Additionally, it has adapted to the style of the `BioLaySumm` dataset.  
 However, in [Example 4](#example-4), the gap between `perplexity` scores is extremely low. Due to the length of the input, the fine-tuned model has difficulty consistently predicting specifics (anatomical locations, sizes, shapes). Contrastingly, the base model had the best performance in all runs. Long, sophisticated medical documents as likely found in its huge pre-training dataset, improving its ability to predict outputs. 
 
 
@@ -474,9 +474,9 @@ pip install -r requirements.txt
 *Latest Python version was used
 
 ## Future Improvements
-- Continue testing with the parameters to find ideal settings
-- Increase input and output tokens (if hardware is suitable)
-- Research into Data Augmentation for further model usability
+- Continue testing with the parameters to find ideal settings. It may be possible to further converge the loss during training.
+- Increase input and output tokens (if hardware is suitable). The addition of more tokens will solve the issue when training and benchmarking on huge radiology reports.
+- Research into Data Augmentation for further model usability. Potential methods are back-translation or using medical synonyms.
 
 ## References
 
