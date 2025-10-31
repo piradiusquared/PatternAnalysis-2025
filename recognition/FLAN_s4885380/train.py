@@ -11,6 +11,9 @@ from dataset import *
 from modules import *
 from constants import *
 
+"""
+Custom training loop for fine-tuning. Handles all aspects of training and evaluation.
+"""
 class FlanTrainer:
     def __init__(self,
                  model: AutoModelForSeq2SeqLM,
@@ -31,8 +34,11 @@ class FlanTrainer:
         self.scaler = GradScaler()
         self.metric = evaluate.load("rouge")
 
-        self._train_loss = []
-        
+        self._train_loss = [] # List of losses per batch
+
+    """
+    High level loop for managing the training and evaluation process. Prints out epoch and total time used for training
+    """
     def train(self):
         start_time = time.time()
         for epoch in range(EPOCHS):
@@ -45,11 +51,15 @@ class FlanTrainer:
             epoch_time = time.time() - epoch_start
             print(f"Epoch {epoch + 1} took {epoch_time/60 : .2f} minutes")
 
+        # Divmod to get remainder to calculate hours, minutes, seconds
         total_time = time.time() - start_time
         hours, rem = divmod(total_time, 3600)
         minutes, seconds = divmod(rem, 60)
         print(f"\nTotal training time: {int(hours)}h {int(minutes)}m {seconds:.2f}s")
 
+    """
+    Inner training per epoch. Handles scaler steps, optimising and loss records
+    """
     def train_epoch(self, epoch: int) -> None:
         print(f"\nStarting Epoch {epoch+1}/{EPOCHS}")
         self.model.train()
@@ -76,7 +86,9 @@ class FlanTrainer:
             tqdm.write(f"Batch: {batch_num} Loss: {loss.item(): .4f}")
             batch_num += 1
 
-
+    """
+    Evaluates each epoch through model generation. Saves the model at each epoch checkpoint
+    """
     def evaluate_epoch(self, epoch):
         print(f"Evaluation for Epoch {epoch + 1}")
         self.model.eval()
@@ -86,6 +98,7 @@ class FlanTrainer:
 
         eval_progress = tqdm(self.eval_dataloader, desc="Evaluating")
         for batch in eval_progress:
+            # Get key value pairs and parse input_ids and attention_mask
             batch = {k: v.to(self.device) for k, v in batch.items()}
             with torch.no_grad():
                 generated_tokens = self.model.generate(
@@ -113,7 +126,10 @@ class FlanTrainer:
         self.model.save_pretrained(epoch_output_dir)
         self.tokenizer.save_pretrained(epoch_output_dir)
         print(f"Epoch {epoch + 1} Model is saved to: {OUTPUT_DIR}/epoch_{epoch + 1}")
-    
+
+    """
+    Helper used to pass the private variable into Matplotlib or other graphing libraries
+    """
     def get_train_loss(self) -> list:
         return self._train_loss
 
@@ -130,7 +146,6 @@ model, tokenizer = builder.build()
 model.to(device)
 
 # Preprocess data into splits:
-
 dataframe = SplitData(file_path=TRAIN_FILE)
 train_split, validation_split = dataframe.get_splits()
 
@@ -144,12 +159,14 @@ data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
 train_dataloader = DataLoader(
     train_dataset, shuffle=True, collate_fn=data_collator, batch_size=TRAIN_BATCH_SIZE
 )
-
 eval_dataloader = DataLoader(
     validation_dataset, shuffle=True, collate_fn=data_collator, batch_size=VALID_BATCH_SIZE
 )
 
+# Build optimiser and scheduler
 optimizer, scheduler = builder.setup_optimiser(model=model, train_dataloader=train_dataloader)
+
+# Setup the trainer with all arguments
 trainer = FlanTrainer(model=model,
                         tokenizer=tokenizer,
                         train_dataloader=train_dataloader,
@@ -158,6 +175,7 @@ trainer = FlanTrainer(model=model,
                         lr_scheduler=scheduler,
                         device=device)
 
+# Start actual training
 trainer.train()
 
 import matplotlib.pyplot as plt
