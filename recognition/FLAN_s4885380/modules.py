@@ -11,10 +11,16 @@ from peft import LoraConfig, get_peft_model, TaskType
 from dataset import *
 from constants import *
 
+"""
+Build and loads the pre-trained model as well as LoRA and AdamW optimiser
+"""
 class FlanModel:
     def __init__(self):
         pass
 
+    """
+    Loads the tokeniser and Flan-T5 base model. Configures LoRA to parameters described in constant.py
+    """
     def build(self) -> Tuple[AutoModelForSeq2SeqLM, AutoTokenizer]:
         # Load actual Flan-T5 models
         tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -31,9 +37,12 @@ class FlanModel:
         )
 
         model = get_peft_model(model, lora_config)
-        model.print_trainable_parameters()
+        model.print_trainable_parameters() # Show trainable parameters
         return model, tokenizer
 
+    """
+    Setup optimiser and scheduler
+    """
     def setup_optimiser(self, model, train_dataloader) -> Tuple[AdamW, get_scheduler]:
         optimizer = AdamW(model.parameters(), lr=LEARNING_RATE)
         num_training_steps = EPOCHS * len(train_dataloader)
