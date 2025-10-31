@@ -151,6 +151,7 @@ class FlanDataset(Dataset):
 ```
 
 ## Training and Reproducing Results
+> :memo: **Note:** All training was completed on the UQ `rangpur` cluster through remove `ssh` access.
 ### Hardware Requirements
 | Hardware | Description |
 | -------- | ----------- |
